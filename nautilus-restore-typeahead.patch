@@ -1,8 +1,8 @@
-Index: nautilus-3.38.1/data/org.gnome.nautilus.gschema.xml
+Index: nautilus-40.2/data/org.gnome.nautilus.gschema.xml
 ===================================================================
---- nautilus-3.38.1.orig/data/org.gnome.nautilus.gschema.xml
-+++ nautilus-3.38.1/data/org.gnome.nautilus.gschema.xml
-@@ -195,6 +195,11 @@
+--- nautilus-40.2.orig/data/org.gnome.nautilus.gschema.xml
++++ nautilus-40.2/data/org.gnome.nautilus.gschema.xml
+@@ -186,6 +186,11 @@
        <summary>What viewer should be used when searching</summary>
        <description>When searching Nautilus will switch to the type of view in this setting.</description>
      </key>
@@ -14,11 +14,11 @@ Index: nautilus-3.38.1/data/org.gnome.nautilus.gschema.xml
      <key type="b" name="open-folder-on-dnd-hover">
        <default>true</default>
        <summary>Whether to open the hovered folder after a timeout when drag and drop operation</summary>
-Index: nautilus-3.38.1/src/nautilus-global-preferences.h
+Index: nautilus-40.2/src/nautilus-global-preferences.h
 ===================================================================
---- nautilus-3.38.1.orig/src/nautilus-global-preferences.h
-+++ nautilus-3.38.1/src/nautilus-global-preferences.h
-@@ -140,6 +140,9 @@ typedef enum
+--- nautilus-40.2.orig/src/nautilus-global-preferences.h
++++ nautilus-40.2/src/nautilus-global-preferences.h
+@@ -127,6 +127,9 @@ typedef enum
  /* Recent files */
  #define NAUTILUS_PREFERENCES_RECENT_FILES_ENABLED          "remember-recent-files"
  
@@ -28,11 +28,11 @@ Index: nautilus-3.38.1/src/nautilus-global-preferences.h
  /* Default view when searching */
  #define NAUTILUS_PREFERENCES_SEARCH_VIEW "search-view"
  
-Index: nautilus-3.38.1/src/nautilus-list-view.c
+Index: nautilus-40.2/src/nautilus-list-view.c
 ===================================================================
---- nautilus-3.38.1.orig/src/nautilus-list-view.c
-+++ nautilus-3.38.1/src/nautilus-list-view.c
-@@ -3124,6 +3124,7 @@ nautilus_list_view_set_selection (Nautil
+--- nautilus-40.2.orig/src/nautilus-list-view.c
++++ nautilus-40.2/src/nautilus-list-view.c
+@@ -3134,6 +3134,7 @@ nautilus_list_view_set_selection (Nautil
      gboolean cursor_is_set_on_selection = FALSE;
      GList *iters, *l;
      NautilusFile *file;
@@ -40,7 +40,7 @@ Index: nautilus-3.38.1/src/nautilus-list-view.c
  
      list_view = NAUTILUS_LIST_VIEW (view);
      model = list_view->details->model;
-@@ -3155,10 +3156,22 @@ nautilus_list_view_set_selection (Nautil
+@@ -3165,10 +3166,22 @@ nautilus_list_view_set_selection (Nautil
  
              gtk_tree_selection_select_iter (tree_selection,
                                              (GtkTreeIter *) l->data);
@@ -63,7 +63,7 @@ Index: nautilus-3.38.1/src/nautilus-list-view.c
      g_signal_handlers_unblock_by_func (tree_selection, list_selection_changed_callback, view);
      nautilus_files_view_notify_selection_changed (view);
  }
-@@ -4181,3 +4194,9 @@ nautilus_list_view_new (NautilusWindowSl
+@@ -4189,3 +4202,9 @@ nautilus_list_view_new (NautilusWindowSl
                           "window-slot", slot,
                           NULL);
  }
@@ -73,22 +73,10 @@ Index: nautilus-3.38.1/src/nautilus-list-view.c
 +{
 +  return list_view->details->tree_view;
 +}
-Index: nautilus-3.38.1/src/nautilus-list-view.h
+Index: nautilus-40.2/src/nautilus-window-slot.c
 ===================================================================
---- nautilus-3.38.1.orig/src/nautilus-list-view.h
-+++ nautilus-3.38.1/src/nautilus-list-view.h
-@@ -37,4 +37,5 @@ struct _NautilusListView
- 	NautilusListViewDetails *details;
- };
- 
--NautilusFilesView * nautilus_list_view_new (NautilusWindowSlot *slot);
-\ No newline at end of file
-+NautilusFilesView * nautilus_list_view_new (NautilusWindowSlot *slot);
-+GtkTreeView * nautilus_list_view_get_tree_view (NautilusListView *list_view);
-Index: nautilus-3.38.1/src/nautilus-window-slot.c
-===================================================================
---- nautilus-3.38.1.orig/src/nautilus-window-slot.c
-+++ nautilus-3.38.1/src/nautilus-window-slot.c
+--- nautilus-40.2.orig/src/nautilus-window-slot.c
++++ nautilus-40.2/src/nautilus-window-slot.c
 @@ -23,6 +23,9 @@
  
  #include "nautilus-window-slot.h"
@@ -318,7 +306,7 @@ Index: nautilus-3.38.1/src/nautilus-window-slot.c
  
      g_signal_handlers_disconnect_by_data (nautilus_trash_monitor_get (), self);
  
-@@ -3163,6 +3333,10 @@ nautilus_window_slot_finalize (GObject *
+@@ -3166,6 +3336,10 @@ nautilus_window_slot_finalize (GObject *
      self = NAUTILUS_WINDOW_SLOT (object);
      priv = nautilus_window_slot_get_instance_private (self);
  
@@ -329,7 +317,7 @@ Index: nautilus-3.38.1/src/nautilus-window-slot.c
      g_clear_pointer (&priv->title, g_free);
  
      G_OBJECT_CLASS (nautilus_window_slot_parent_class)->finalize (object);
-@@ -3688,6 +3862,13 @@ nautilus_window_slot_set_active (Nautilu
+@@ -3691,6 +3865,13 @@ nautilus_window_slot_set_active (Nautilu
              window = nautilus_window_slot_get_window (self);
              g_assert (self == nautilus_window_get_active_slot (window));
  
@@ -343,7 +331,7 @@ Index: nautilus-3.38.1/src/nautilus-window-slot.c
              gtk_widget_insert_action_group (GTK_WIDGET (window), "slot", NULL);
          }
  
-@@ -3767,3 +3948,792 @@ nautilus_window_slot_open_location_set_n
+@@ -3770,3 +3951,792 @@ nautilus_window_slot_open_location_set_n
      begin_location_change (self, location, NULL, new_selection,
                             change_type, distance, NULL);
  }
@@ -1136,3 +1124,15 @@ Index: nautilus-3.38.1/src/nautilus-window-slot.c
 +    priv->isearch_entry = NULL;
 +  }
 +}
+Index: nautilus-40.2/src/nautilus-list-view.h
+===================================================================
+--- nautilus-40.2.orig/src/nautilus-list-view.h
++++ nautilus-40.2/src/nautilus-list-view.h
+@@ -37,4 +37,5 @@ struct _NautilusListView
+ 	NautilusListViewDetails *details;
+ };
+ 
+-NautilusFilesView * nautilus_list_view_new (NautilusWindowSlot *slot);
+\ No newline at end of file
++NautilusFilesView * nautilus_list_view_new (NautilusWindowSlot *slot);
++GtkTreeView * nautilus_list_view_get_tree_view (NautilusListView *list_view);
