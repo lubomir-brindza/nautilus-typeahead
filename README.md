@@ -1,4 +1,7 @@
 # nautilus-typeahead
+
+> For the time being, nautilus 43.0 packaged with Ubuntu 22.10 Kinetic (and newer) is **unsupported**, and a patched version won't be available in the PPA. Sorry about that.
+
 **TL;DR:** This is a pre-built Ubuntu PPA package restoring the type-to-seek (typeahead) functionality which was removed in upstream Nautilus, 
 so you don't need to patch it in yourself.
 
