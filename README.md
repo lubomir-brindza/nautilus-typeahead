@@ -1,9 +1,12 @@
 # nautilus-typeahead
 
-> For the time being, nautilus 43.0 packaged with Ubuntu 22.10 Kinetic (and newer) is **unsupported**, and a patched version won't be available in the PPA. Sorry about that.
-
 **TL;DR:** This is a pre-built Ubuntu PPA package restoring the type-to-seek (typeahead) functionality which was removed in upstream Nautilus, 
 so you don't need to patch it in yourself.
+
+## What's new
+
+Nautilus has gone through a major rewrite and a new patch reintroducing the type-ahead functionality was written from scratch; it might take a little time to adjust; see the FAQ.
+
 
 ## What does it do?
 
@@ -39,3 +42,9 @@ to nautilus sources, but currently there's no difference between the two.
 
 Whenever the Ubuntu team releases a new version of nautilus, it'll get install priority over the (older) version in the PPA repository. 
 Typically I'll notice within a day or two and rebuild the package, but feel free to open an issue here on Github if I'm dragging my feet.
+
+- I've installed nautilus from your PPA but typeahead does not work, what gives?
+
+Patched nautilus versions from 43.0 onwards (Ubuntu 22.10 and newer) add a configuration toggle under _Preferences -> Search on type ahead_. You need to uncheck this toggle to disable the default search behavior.
+
+The little pop-up text box in the lower right is no more; if you've managed to forget what you entered (or made a typo), your selection will be cleared after 1 second of inactivity.
