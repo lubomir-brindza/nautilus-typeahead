@@ -28,6 +28,8 @@ If you have any running nautilus windows, you first need to close them with `nau
 
 Fair enough - you can give the `nemo` file manager a try.
 
+You can also try upvoting the issue that asks for this functionality to be included by default, here: https://gitlab.gnome.org/Teams/Design/whiteboards/-/issues/142 
+
 ## Did you make this?
 
 No. The patch file that makes this PPA build possible is maintained by the awesome folks of the Arch Linux community, 
