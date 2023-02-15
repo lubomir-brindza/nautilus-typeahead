@@ -7,7 +7,6 @@ so you don't need to patch it in yourself.
 
 Nautilus has gone through a major rewrite and a new patch reintroducing the type-ahead functionality was written from scratch; it might take a little time to adjust; see the FAQ.
 
-
 ## What does it do?
 
 Long ago, whenever you typed a letter in an active nautilus window, the first file/folder starting with that letter would get highlighted. This is
@@ -50,3 +49,7 @@ Typically I'll notice within a day or two and rebuild the package, but feel free
 Patched nautilus versions from 43.0 onwards (Ubuntu 22.10 and newer) add a configuration toggle under _Preferences -> Search on type ahead_. You need to uncheck this toggle to disable the default search behavior.
 
 The little pop-up text box in the lower right is no more; if you've managed to forget what you entered (or made a typo), your selection will be cleared after 1 second of inactivity.
+
+## Known limitations
+- does not work in open/save file dialog
+- does not sort directories before files - will jumscrp to a file named "aa" instead of directory "ab" on pressing "a"
