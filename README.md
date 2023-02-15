@@ -52,4 +52,4 @@ The little pop-up text box in the lower right is no more; if you've managed to f
 
 ## Known limitations
 - does not work in open/save file dialog
-- does not sort directories before files - will jumscrp to a file named "aa" instead of directory "ab" on pressing "a"
+- does not sort directories before files - will jump to a file named "aa" instead of directory "ab" on pressing "a"
