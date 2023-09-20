@@ -34,8 +34,11 @@ You can also try upvoting the issue that asks for this functionality to be inclu
 No. The patch file that makes this PPA build possible is maintained by the awesome folks of the Arch Linux community, 
 to support their own AUR package: https://aur.archlinux.org/packages/nautilus-typeahead/
 
-This repository was created at a point where I've had to make small edits to the original patch to make it apply cleanly
-to nautilus sources, but currently there's no difference between the two.
+This repository was created at a point where I've had to make small edits to the original patch to make it apply cleanly, but currently there's no difference between the two except metadata (line numbers, etc.).
+
+The current(-ish) version of the typeahed patch for nautilus 42 (distribuded with Ubuntu 22.04) and newer was authored by Xavier Claessens (see https://gitlab.gnome.org/xclaesse/nautilus/-/commits/type-ahead).
+
+Xavier recently made a few changes to the patch so that it respects view ordering (and also updated it for nautilus 45, which isn't distributed by Ubuntu yet); however I haven't been able to make it work with older nautilus releases. I'll try giving it some more time, but since Ubuntu 23.10 is around the corner, we might not need to wait too long.
 
 ## FAQ
 
