@@ -1,9 +1,10 @@
 # nautilus-typeahead
 
-**TL;DR:** This is a pre-built Ubuntu PPA package restoring the type-to-seek (typeahead) functionality which was removed in upstream Nautilus, 
-so you don't need to patch it in yourself.
+**TL;DR:** This repository contains a patch file that is used to build a Ubuntu PPA package of nautilus with restored type-to-seek (typeahead) functionality.
 
 ## What's new
+
+Version for Ubuntu 23.10 Mantic Minotaur is finally up!
 
 Nautilus has gone through a major rewrite and a new patch reintroducing the type-ahead functionality was written from scratch; it might take a little time to adjust; see the FAQ.
 
@@ -23,6 +24,27 @@ sudo apt install nautilus
 ```
 If you have any running nautilus windows, you first need to close them with `nautilus -q` or `killall nautilus`.
 
+## Building it yourself
+
+You can use this patch to build your own version and not rely on the PPA repository.
+
+```
+apt-get source nautilus  # retrieve sources w/ Ubuntu patches
+
+cd nautilus-<version>
+cp ~/<patch_folder>/nautilus-restore-typeahead.patch debian/patches/
+echo nautilus-restore-typeahead.patch >> debian/patches/series
+quilt push  # (try to) apply the patch
+
+sudo apt-get build-dep nautilus  # install build dependencies
+dch -i  # update changelog
+
+debuild -us -uc -b
+```
+This will produce a .deb file in the parent directory, which you can then simply install by calling `dpkg -i nautilus-<version>.deb`
+
+If you encounter problems building, please make sure you can build from source without the patch applied before opening an issue.
+
 ## I don't think I trust you, what are my alternatives?
 
 Fair enough - you can give the `nemo` file manager a try.
@@ -36,9 +58,8 @@ to support their own AUR package: https://aur.archlinux.org/packages/nautilus-ty
 
 This repository was created at a point where I've had to make small edits to the original patch to make it apply cleanly, but currently there's no difference between the two except metadata (line numbers, etc.).
 
-The current(-ish) version of the typeahed patch for nautilus 42 (distribuded with Ubuntu 22.04) and newer was authored by Xavier Claessens (see https://gitlab.gnome.org/xclaesse/nautilus/-/commits/type-ahead).
+The current version of the typeahed patch for nautilus 42 (distributed with Ubuntu 22.04) and newer was authored by Xavier Claessens (see https://gitlab.gnome.org/xclaesse/nautilus/-/commits/type-ahead).
 
-Xavier recently made a few changes to the patch so that it respects view ordering (and also updated it for nautilus 45, which isn't distributed by Ubuntu yet); however I haven't been able to make it work with older nautilus releases. I'll try giving it some more time, but since Ubuntu 23.10 is around the corner, we might not need to wait too long.
 
 ## FAQ
 
@@ -49,10 +70,8 @@ Typically I'll notice within a day or two and rebuild the package, but feel free
 
 - I've installed nautilus from your PPA but typeahead does not work, what gives?
 
-Patched nautilus versions from 43.0 onwards (Ubuntu 22.10 and newer) add a configuration toggle under _Preferences -> Search on type ahead_. You need to uncheck this toggle to disable the default search behavior.
+Patched nautilus versions from 43.0 onwards (Ubuntu 22.10 and newer) add a configuration toggle under **Preferences -> Search on type ahead**. You need to **disable** this toggle to override the default search behavior.
 
-The little pop-up text box in the lower right is no more; if you've managed to forget what you entered (or made a typo), your selection will be cleared after 1 second of inactivity.
 
 ## Known limitations
 - does not work in open/save file dialog
-- does not sort directories before files - will jump to a file named "aa" instead of directory "ab" on pressing "a"
