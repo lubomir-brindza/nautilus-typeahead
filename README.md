@@ -4,7 +4,7 @@
 
 ## What's new
 
-Version for Ubuntu 23.10 Mantic Minotaur is finally up!
+Version for Ubuntu 23.10 Mantic Minotaur is up (`1:45~rc-1ubuntu1ppa2`).
 
 Nautilus has gone through a major rewrite and a new patch reintroducing the type-ahead functionality was written from scratch; it might take a little time to adjust; see the FAQ.
 
