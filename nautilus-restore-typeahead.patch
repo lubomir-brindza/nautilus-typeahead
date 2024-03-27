@@ -1,10 +1,10 @@
-diff --git a/data/org.gnome.nautilus.gschema.xml b/data/org.gnome.nautilus.gschema.xml
-index 94b17208d..438008f15 100644
---- a/data/org.gnome.nautilus.gschema.xml
-+++ b/data/org.gnome.nautilus.gschema.xml
-@@ -77,6 +77,11 @@
+Index: nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
+===================================================================
+--- nautilus-46~beta.orig/data/org.gnome.nautilus.gschema.xml
++++ nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
+@@ -82,6 +82,11 @@
        <summary>Always use the location entry, instead of the pathbar</summary>
-       <description>If set to true, then Nautilus browser windows will always use a textual input entry for the location toolbar, instead of the pathbar.</description>
+       <description>If set to true, Files will always use a textual input entry for the location toolbar, instead of the pathbar.</description>
      </key>
 +    <key type="b" name="type-ahead-search">
 +      <default>true</default>
@@ -14,10 +14,10 @@ index 94b17208d..438008f15 100644
      <key name="recursive-search" enum="org.gnome.nautilus.SpeedTradeoff">
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
-diff --git a/src/nautilus-global-preferences.h b/src/nautilus-global-preferences.h
-index 9d39bbc03..27c2e54f1 100644
---- a/src/nautilus-global-preferences.h
-+++ b/src/nautilus-global-preferences.h
+Index: nautilus-46~beta/src/nautilus-global-preferences.h
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-global-preferences.h
++++ nautilus-46~beta/src/nautilus-global-preferences.h
 @@ -116,6 +116,7 @@ typedef enum
  
  /* Search behaviour */
@@ -26,20 +26,20 @@ index 9d39bbc03..27c2e54f1 100644
  
  /* Context menu options */
  #define NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY "show-delete-permanently"
-diff --git a/src/nautilus-preferences-window.c b/src/nautilus-preferences-window.c
-index a1cd95823..b5e167120 100644
---- a/src/nautilus-preferences-window.c
-+++ b/src/nautilus-preferences-window.c
-@@ -41,6 +41,8 @@
-         "show_create_link_switch"
+Index: nautilus-46~beta/src/nautilus-preferences-window.c
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-preferences-window.c
++++ nautilus-46~beta/src/nautilus-preferences-window.c
+@@ -42,6 +42,8 @@
+         "show_create_link_row"
  #define NAUTILUS_PREFERENCES_DIALOG_LIST_VIEW_USE_TREE_WIDGET                  \
-         "use_tree_view_switch"
+         "use_tree_view_row"
 +#define NAUTILUS_PREFERENCES_DIALOG_TYPE_AHEAD_WIDGET                          \
 +        "type_ahead_search"
  
  /* combo preferences */
  #define NAUTILUS_PREFERENCES_DIALOG_OPEN_ACTION_COMBO                          \
-@@ -334,6 +336,9 @@ nautilus_preferences_window_setup (GtkBuilder *builder)
+@@ -361,6 +363,9 @@ nautilus_preferences_window_setup (GtkBu
      bind_builder_bool (builder, nautilus_preferences,
                         NAUTILUS_PREFERENCES_DIALOG_DELETE_PERMANENTLY_WIDGET,
                         NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY);
@@ -47,13 +47,13 @@ index a1cd95823..b5e167120 100644
 +                       NAUTILUS_PREFERENCES_DIALOG_TYPE_AHEAD_WIDGET,
 +                       NAUTILUS_PREFERENCES_TYPE_AHEAD_SEARCH);
  
-     bind_builder_combo_row (builder, nautilus_preferences,
-                             NAUTILUS_PREFERENCES_DIALOG_OPEN_ACTION_COMBO,
-diff --git a/src/nautilus-query-editor.c b/src/nautilus-query-editor.c
-index 95b284b7d..4ca27b001 100644
---- a/src/nautilus-query-editor.c
-+++ b/src/nautilus-query-editor.c
-@@ -742,6 +742,12 @@ nautilus_query_editor_set_query (NautilusQueryEditor *self,
+     setup_detailed_date (builder);
+ 
+Index: nautilus-46~beta/src/nautilus-query-editor.c
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-query-editor.c
++++ nautilus-46~beta/src/nautilus-query-editor.c
+@@ -732,6 +732,12 @@ nautilus_query_editor_set_query (Nautilu
  
      g_return_if_fail (NAUTILUS_IS_QUERY_EDITOR (self));
  
@@ -66,44 +66,51 @@ index 95b284b7d..4ca27b001 100644
      if (query != NULL)
      {
          text = nautilus_query_get_text (query);
-diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
-index ac367db12..567df1c88 100644
---- a/src/nautilus-window-slot.c
-+++ b/src/nautilus-window-slot.c
-@@ -67,6 +67,9 @@ enum
- 
- #define FILE_SHARING_SCHEMA_ID "org.gnome.desktop.file-sharing"
+Index: nautilus-46~beta/src/nautilus-window-slot.c
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-window-slot.c
++++ nautilus-46~beta/src/nautilus-window-slot.c
+@@ -68,6 +68,9 @@ enum
+     NUM_PROPERTIES
+ };
  
 +/* In type ahead mode, clear entry if it did not change for a while */
 +#define CLEAR_QUERY_EDITOR_TIMEOUT 1000
 +
  struct _NautilusWindowSlot
  {
-     GtkBox parent_instance;
-@@ -105,10 +108,7 @@ struct _NautilusWindowSlot
+     AdwBin parent_instance;
+@@ -110,6 +113,7 @@ struct _NautilusWindowSlot
      /* Query editor */
      NautilusQueryEditor *query_editor;
      NautilusQuery *pending_search_query;
--    gulong qe_changed_id;
--    gulong qe_cancel_id;
--    gulong qe_activated_id;
--    gulong qe_focus_view_id;
 +    guint clear_query_editor_timeout_id;
  
-     GtkLabel *search_info_label;
-     GtkRevealer *search_info_label_revealer;
-@@ -176,6 +176,7 @@ static void real_set_templates_menu (NautilusWindowSlot *self,
-                                      GMenuModel         *menu);
- static GMenuModel *real_get_templates_menu (NautilusWindowSlot *self);
- static void nautilus_window_slot_setup_extra_location_widgets (NautilusWindowSlot *self);
+     /* Banner */
+     AdwBanner *banner;
+@@ -168,6 +172,7 @@ static void nautilus_window_slot_set_loc
+ static void nautilus_window_slot_set_viewed_file (NautilusWindowSlot *self,
+                                                   NautilusFile       *file);
+ static void update_search_information (NautilusWindowSlot *self);
 +static GFile *nautilus_window_slot_get_current_location (NautilusWindowSlot *self);
  
  void
  free_navigation_state (gpointer data)
-@@ -426,6 +427,37 @@ query_editor_focus_view_callback (NautilusQueryEditor *editor,
+@@ -404,6 +409,48 @@ query_editor_focus_view_callback (Nautil
      }
  }
  
++static GFile *
++nautilus_window_slot_get_current_location(NautilusWindowSlot *self)
++{
++    if (self->pending_location != NULL)
++    {
++        return self->pending_location;
++    }
++
++    return self->location;
++}
++
 +static gboolean
 +type_ahead_search (void)
 +{
@@ -128,24 +135,26 @@ index ac367db12..567df1c88 100644
 +file_compare_for_type_ahead (gconstpointer a, gconstpointer b, gpointer user_data)
 +{
 +    FileCompareForTypeAheadContext *ctx = user_data;
-+    return nautilus_file_compare_for_sort_by_attribute_q (NAUTILUS_FILE(a),
-+                                                          NAUTILUS_FILE(b),
-+                                                          ctx->attribute,
-+                                                          ctx->directories_first,
-+                                                          ctx->reversed);
++    return nautilus_file_compare_for_sort_by_attribute_q(NAUTILUS_FILE (a),
++                                                         NAUTILUS_FILE (b),
++                                                         ctx->sort_attribute,
++                                                         ctx->directories_first,
++                                                         ctx->reversed);
 +}
 +
  static void
  query_editor_changed_callback (NautilusQueryEditor *editor,
                                 NautilusQuery       *query,
-@@ -436,8 +468,61 @@ query_editor_changed_callback (NautilusQueryEditor *editor,
+@@ -414,9 +461,54 @@ query_editor_changed_callback (NautilusQ
  
      view = nautilus_window_slot_get_current_view (self);
  
+-    /* Setting search query may cause the view to load a new location. */
 -    nautilus_view_set_search_query (view, query);
 -    nautilus_window_slot_set_location (self, nautilus_view_get_location (view));
 +    if (nautilus_window_slot_get_search_visible (self))
 +    {
++        /* Setting search query may cause the view to load a new location. */
 +        nautilus_view_set_search_query (view, query);
 +        nautilus_window_slot_set_location (self, nautilus_view_get_location (view));
 +    }
@@ -165,9 +174,9 @@ index ac367db12..567df1c88 100644
 +        for (l = files; l; l = l->next)
 +        {
 +            NautilusFile *file = NAUTILUS_FILE (l->data);
-+            g_autofree const gchar *name = nautilus_file_get_display_name (file);
-+            g_autofree const gchar *name_casefold = g_utf8_casefold (name, text_len);
-+            g_autofree const gchar *name_collate = g_utf8_collate_key_for_filename (name_casefold, -1);
++            const gchar *name = nautilus_file_get_display_name(file);
++            g_autofree gchar *name_casefold = g_utf8_casefold(name, text_len);
++            g_autofree gchar *name_collate = g_utf8_collate_key_for_filename(name_casefold, -1);
 +
 +            if (g_str_equal (name_collate, text_collate))
 +            {
@@ -176,20 +185,12 @@ index ac367db12..567df1c88 100644
 +        }
 +
 +        /* Select the first match */
++        if (matches != NULL)
 +        {
 +            FileCompareForTypeAheadContext ctx;
-+            GActionGroup *action_group = nautilus_files_view_get_action_group (NAUTILUS_FILES_VIEW (view));
-+            g_autoptr (GVariant) value = g_action_group_get_action_state (action_group, "sort");
-+            const gchar *attribute_name;
-+            g_autolist (NautilusFile) selection;
-+
-+            g_variant_get (value, "(&sb)", &attribute_name, &ctx.reversed);
-+            ctx.attribute = g_quark_from_string (attribute_name);
-+            ctx.directories_first = nautilus_files_view_should_sort_directories_first (NAUTILUS_FILES_VIEW (view));
++            nautilus_files_view_get_sort_state (NAUTILUS_FILES_VIEW (view), &ctx.sort_attribute, &ctx.reversed, &ctx.directories_first);
 +            matches = g_list_sort_with_data (matches, file_compare_for_type_ahead, &ctx);
-+
-+            selection = matches;
-+            matches = g_list_remove_link (matches, selection);
++            g_autolist(NautilusFile) selection = g_list_prepend (NULL, g_object_ref (matches->data));
 +            nautilus_view_set_selection (self->content_view, selection);
 +        }
 +
@@ -202,51 +203,50 @@ index ac367db12..567df1c88 100644
  }
  
  static void
-@@ -447,11 +532,6 @@ hide_query_editor (NautilusWindowSlot *self)
+@@ -426,8 +518,6 @@ hide_query_editor (NautilusWindowSlot *s
  
      view = nautilus_window_slot_get_current_view (self);
  
--    g_clear_signal_handler (&self->qe_changed_id, self->query_editor);
--    g_clear_signal_handler (&self->qe_cancel_id, self->query_editor);
--    g_clear_signal_handler (&self->qe_activated_id, self->query_editor);
--    g_clear_signal_handler (&self->qe_focus_view_id, self->query_editor);
+-    g_signal_handlers_disconnect_by_data (self->query_editor, self);
 -
      nautilus_query_editor_set_query (self->query_editor, NULL);
  
      if (nautilus_view_is_searching (view))
-@@ -515,31 +595,6 @@ show_query_editor (NautilusWindowSlot *self)
+@@ -456,17 +546,6 @@ hide_query_editor (NautilusWindowSlot *s
+     }
+ }
+ 
+-static GFile *
+-nautilus_window_slot_get_current_location (NautilusWindowSlot *self)
+-{
+-    if (self->pending_location != NULL)
+-    {
+-        return self->pending_location;
+-    }
+-
+-    return self->location;
+-}
+-
+ static void
+ show_query_editor (NautilusWindowSlot *self)
+ {
+@@ -491,15 +570,6 @@ show_query_editor (NautilusWindowSlot *s
      }
  
      gtk_widget_grab_focus (GTK_WIDGET (self->query_editor));
 -
--    if (self->qe_changed_id == 0)
--    {
--        self->qe_changed_id =
--            g_signal_connect (self->query_editor, "changed",
--                              G_CALLBACK (query_editor_changed_callback), self);
--    }
--    if (self->qe_cancel_id == 0)
--    {
--        self->qe_cancel_id =
--            g_signal_connect (self->query_editor, "cancel",
--                              G_CALLBACK (query_editor_cancel_callback), self);
--    }
--    if (self->qe_activated_id == 0)
--    {
--        self->qe_activated_id =
--            g_signal_connect (self->query_editor, "activated",
--                              G_CALLBACK (query_editor_activated_callback), self);
--    }
--    if (self->qe_focus_view_id == 0)
--    {
--        self->qe_focus_view_id =
--            g_signal_connect (self->query_editor, "focus-view",
--                              G_CALLBACK (query_editor_focus_view_callback), self);
--    }
+-    g_signal_connect (self->query_editor, "changed",
+-                      G_CALLBACK (query_editor_changed_callback), self);
+-    g_signal_connect (self->query_editor, "cancel",
+-                      G_CALLBACK (query_editor_cancel_callback), self);
+-    g_signal_connect (self->query_editor, "activated",
+-                      G_CALLBACK (query_editor_activated_callback), self);
+-    g_signal_connect (self->query_editor, "focus-view",
+-                      G_CALLBACK (query_editor_focus_view_callback), self);
  }
  
  static void
-@@ -634,7 +689,7 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -613,7 +683,7 @@ nautilus_window_slot_handle_event (Nauti
                                                       state);
      }
  
@@ -255,8 +255,8 @@ index ac367db12..567df1c88 100644
      {
          nautilus_window_slot_set_search_visible (self, TRUE);
      }
-@@ -886,6 +941,15 @@ nautilus_window_slot_constructed (GObject *object)
-     gtk_box_append (GTK_BOX (self), extras_vbox);
+@@ -874,6 +944,15 @@ nautilus_window_slot_constructed (GObjec
+     gtk_box_append (GTK_BOX (self->vbox), extras_vbox);
  
      self->query_editor = NAUTILUS_QUERY_EDITOR (nautilus_query_editor_new ());
 +    g_signal_connect (self->query_editor, "changed",
@@ -271,7 +271,7 @@ index ac367db12..567df1c88 100644
      /* We want to keep alive the query editor betwen additions and removals on the
       * UI, specifically when the toolbar adds or removes it */
      g_object_ref_sink (self->query_editor);
-@@ -1972,6 +2036,9 @@ setup_view (NautilusWindowSlot *self,
+@@ -1992,6 +2071,9 @@ setup_view (NautilusWindowSlot *self,
  
      nautilus_window_slot_disconnect_content_view (self);
  
@@ -281,11 +281,41 @@ index ac367db12..567df1c88 100644
      self->new_content_view = view;
  
      nautilus_window_slot_connect_new_content_view (self);
-diff --git a/src/resources/ui/nautilus-preferences-window.ui b/src/resources/ui/nautilus-preferences-window.ui
-index cff1c278e..8ad928908 100644
---- a/src/resources/ui/nautilus-preferences-window.ui
-+++ b/src/resources/ui/nautilus-preferences-window.ui
-@@ -49,6 +49,21 @@
+@@ -2557,14 +2639,6 @@ view_started_loading (NautilusWindowSlot
+         nautilus_window_slot_set_allow_stop (self, TRUE);
+     }
+ 
+-    /* Only grab focus if the menu isn't showing. Otherwise the menu disappears
+-     * e.g. when the user toggles Show Hidden Files
+-     */
+-    if (!nautilus_window_is_menu_visible (self->window))
+-    {
+-        gtk_widget_grab_focus (GTK_WIDGET (self->window));
+-    }
+-
+     nautilus_window_slot_set_loading (self, TRUE);
+ }
+ 
+@@ -2583,6 +2657,14 @@ view_ended_loading (NautilusWindowSlot *
+         self->needs_reload = FALSE;
+     }
+ 
++    /* Only grab focus if the menu isn't showing. Otherwise the menu disappears
++     * e.g. when the user toggles Show Hidden Files
++     */
++    if (!nautilus_window_is_menu_visible (self->window))
++    {
++        gtk_widget_grab_focus (GTK_WIDGET (self->window));
++    }
++
+     nautilus_window_slot_set_allow_stop (self, FALSE);
+ 
+     nautilus_window_slot_set_loading (self, FALSE);
+Index: nautilus-46~beta/src/resources/ui/nautilus-preferences-window.ui
+===================================================================
+--- nautilus-46~beta.orig/src/resources/ui/nautilus-preferences-window.ui
++++ nautilus-46~beta/src/resources/ui/nautilus-preferences-window.ui
+@@ -37,6 +37,21 @@
                  <property name="visible">True</property>
                </object>
              </child>
