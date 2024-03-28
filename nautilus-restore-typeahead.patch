@@ -14,6 +14,44 @@ Index: nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
      <key name="recursive-search" enum="org.gnome.nautilus.SpeedTradeoff">
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
+Index: nautilus-46~beta/src/nautilus-files-view.c
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-files-view.c
++++ nautilus-46~beta/src/nautilus-files-view.c
+@@ -9831,3 +9831,19 @@ nautilus_files_view_new (guint
+ 
+     return view;
+ }
++
++void
++nautilus_files_view_get_sort_state(NautilusFilesView *view,
++                                   GQuark            *sort_attribute,
++                                   gboolean          *reversed,
++                                   gboolean          *directories_first)
++{
++    NautilusFilesViewPrivate *priv = nautilus_files_view_get_instance_private (view);
++
++    g_autoptr(GVariant) value = nautilus_list_base_get_sort_state(priv->list_base);
++    const gchar *target_name;
++    g_variant_get(value, "(&sb)", &target_name, reversed);
++    *sort_attribute = g_quark_from_string(target_name);
++    *directories_first = g_settings_get_boolean(gtk_filechooser_preferences,
++                                                NAUTILUS_PREFERENCES_SORT_DIRECTORIES_FIRST);
++}
+Index: nautilus-46~beta/src/nautilus-files-view.h
+===================================================================
+--- nautilus-46~beta.orig/src/nautilus-files-view.h
++++ nautilus-46~beta/src/nautilus-files-view.h
+@@ -162,4 +162,9 @@ void              nautilus_files_view_up
+ void              nautilus_files_view_update_toolbar_menus       (NautilusFilesView      *view);
+ void              nautilus_files_view_update_actions_state       (NautilusFilesView      *view);
+ 
++void              nautilus_files_view_get_sort_state             (NautilusFilesView      *view,
++                                                                  GQuark                 *sort_attribute,
++                                                                  gboolean               *reversed,
++                                                                  gboolean               *directories_first);
++
+ G_END_DECLS
 Index: nautilus-46~beta/src/nautilus-global-preferences.h
 ===================================================================
 --- nautilus-46~beta.orig/src/nautilus-global-preferences.h
@@ -70,17 +108,18 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
 ===================================================================
 --- nautilus-46~beta.orig/src/nautilus-window-slot.c
 +++ nautilus-46~beta/src/nautilus-window-slot.c
-@@ -68,6 +68,9 @@ enum
+@@ -68,6 +68,10 @@ enum
      NUM_PROPERTIES
  };
  
++
 +/* In type ahead mode, clear entry if it did not change for a while */
 +#define CLEAR_QUERY_EDITOR_TIMEOUT 1000
 +
  struct _NautilusWindowSlot
  {
      AdwBin parent_instance;
-@@ -110,6 +113,7 @@ struct _NautilusWindowSlot
+@@ -110,6 +114,7 @@ struct _NautilusWindowSlot
      /* Query editor */
      NautilusQueryEditor *query_editor;
      NautilusQuery *pending_search_query;
@@ -88,14 +127,6 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  
      /* Banner */
      AdwBanner *banner;
-@@ -168,6 +172,7 @@ static void nautilus_window_slot_set_loc
- static void nautilus_window_slot_set_viewed_file (NautilusWindowSlot *self,
-                                                   NautilusFile       *file);
- static void update_search_information (NautilusWindowSlot *self);
-+static GFile *nautilus_window_slot_get_current_location (NautilusWindowSlot *self);
- 
- void
- free_navigation_state (gpointer data)
 @@ -404,6 +409,48 @@ query_editor_focus_view_callback (Nautil
      }
  }
@@ -126,7 +157,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
 +}
 +
 +typedef struct {
-+    GQuark attribute;
++    GQuark sort_attribute;
 +    gboolean directories_first;
 +    gboolean reversed;
 +} FileCompareForTypeAheadContext;
