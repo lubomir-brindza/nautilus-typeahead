@@ -1,7 +1,59 @@
-Index: nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
+From 645ad074cec31c19e6b5b5efa5cfcf2b5ed7e483 Mon Sep 17 00:00:00 2001
+From: Jeremy Bicha <jbicha@debian.org>
+Date: Wed, 23 Feb 2022 08:06:34 -0500
+Subject: [PATCH] Restore backspace for going to parent folder
+
+This restores the behaviour from nautilus <= 3.4.
+
+NautilusWindowSlot: Connect signals on query editor only once
+
+It is wasteful to connect/disconnect signals each time the editor is
+shown/hidden. This also make possible to receive those signals when the
+query changed while being hidden for type ahead.
+
+Support type ahead for fast browsing
+
+Searching is too slow when fast browsing directory tree. Even when
+recursing searching is disabled, it still takes time to load the new
+view and it breaks the browsing work flow.
+
+The use-case is when user has a very well known tree and want to open a
+file, for example "sources/nautilus/src/meson.build", they would type
+*VERY* fast: "s" <enter> "n" <enter> "s" <enter> "m" <enter>. When going
+many times per day into the same location, it becomes muscle memory,
+just like tab in a terminal.
+
+This is similar to how at least Windows file browser works.
+
+NautilusWindowSlot: Fix grabbing focus after loading initial view
+
+When view_started_loading() is first called self->content_view is NULL
+and thus focus is given to self->new_content_view which is not yet part
+of the window UI and thus cannot receive the focus.
+
+Instead, wait for view_ended_loading() because at that stage
+self->content_view is set and has been added into self->vbox.
+
+Visible effect: Using left/right arrows after startup used to move focus
+within top bar, it now selects next/prev file. With type-ahead browsing,
+pressing ENTER after typing a file name immediately after startup used
+to have no effect, it now correctly opens the folder.
+---
+ data/org.gnome.nautilus.gschema.xml           |   5 +
+ src/nautilus-files-view.c                     |  16 ++
+ src/nautilus-files-view.h                     |   5 +
+ src/nautilus-global-preferences.h             |   1 +
+ src/nautilus-preferences-window.c             |   5 +
+ src/nautilus-query-editor.c                   |   6 +
+ src/nautilus-window-slot.c                    | 150 ++++++++++++++----
+ src/nautilus-window.c                         |   2 +
+ .../ui/nautilus-preferences-window.ui         |  15 ++
+ 9 files changed, 171 insertions(+), 34 deletions(-)
+
+Index: nautilus-46.1/data/org.gnome.nautilus.gschema.xml
 ===================================================================
---- nautilus-46~beta.orig/data/org.gnome.nautilus.gschema.xml
-+++ nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
+--- nautilus-46.1.orig/data/org.gnome.nautilus.gschema.xml
++++ nautilus-46.1/data/org.gnome.nautilus.gschema.xml
 @@ -82,6 +82,11 @@
        <summary>Always use the location entry, instead of the pathbar</summary>
        <description>If set to true, Files will always use a textual input entry for the location toolbar, instead of the pathbar.</description>
@@ -14,11 +66,11 @@ Index: nautilus-46~beta/data/org.gnome.nautilus.gschema.xml
      <key name="recursive-search" enum="org.gnome.nautilus.SpeedTradeoff">
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
-Index: nautilus-46~beta/src/nautilus-files-view.c
+Index: nautilus-46.1/src/nautilus-files-view.c
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-files-view.c
-+++ nautilus-46~beta/src/nautilus-files-view.c
-@@ -9831,3 +9831,19 @@ nautilus_files_view_new (guint
+--- nautilus-46.1.orig/src/nautilus-files-view.c
++++ nautilus-46.1/src/nautilus-files-view.c
+@@ -9879,3 +9879,19 @@ nautilus_files_view_new (guint
  
      return view;
  }
@@ -38,10 +90,10 @@ Index: nautilus-46~beta/src/nautilus-files-view.c
 +    *directories_first = g_settings_get_boolean(gtk_filechooser_preferences,
 +                                                NAUTILUS_PREFERENCES_SORT_DIRECTORIES_FIRST);
 +}
-Index: nautilus-46~beta/src/nautilus-files-view.h
+Index: nautilus-46.1/src/nautilus-files-view.h
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-files-view.h
-+++ nautilus-46~beta/src/nautilus-files-view.h
+--- nautilus-46.1.orig/src/nautilus-files-view.h
++++ nautilus-46.1/src/nautilus-files-view.h
 @@ -162,4 +162,9 @@ void              nautilus_files_view_up
  void              nautilus_files_view_update_toolbar_menus       (NautilusFilesView      *view);
  void              nautilus_files_view_update_actions_state       (NautilusFilesView      *view);
@@ -52,10 +104,10 @@ Index: nautilus-46~beta/src/nautilus-files-view.h
 +                                                                  gboolean               *directories_first);
 +
  G_END_DECLS
-Index: nautilus-46~beta/src/nautilus-global-preferences.h
+Index: nautilus-46.1/src/nautilus-global-preferences.h
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-global-preferences.h
-+++ nautilus-46~beta/src/nautilus-global-preferences.h
+--- nautilus-46.1.orig/src/nautilus-global-preferences.h
++++ nautilus-46.1/src/nautilus-global-preferences.h
 @@ -116,6 +116,7 @@ typedef enum
  
  /* Search behaviour */
@@ -64,10 +116,10 @@ Index: nautilus-46~beta/src/nautilus-global-preferences.h
  
  /* Context menu options */
  #define NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY "show-delete-permanently"
-Index: nautilus-46~beta/src/nautilus-preferences-window.c
+Index: nautilus-46.1/src/nautilus-preferences-window.c
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-preferences-window.c
-+++ nautilus-46~beta/src/nautilus-preferences-window.c
+--- nautilus-46.1.orig/src/nautilus-preferences-window.c
++++ nautilus-46.1/src/nautilus-preferences-window.c
 @@ -42,6 +42,8 @@
          "show_create_link_row"
  #define NAUTILUS_PREFERENCES_DIALOG_LIST_VIEW_USE_TREE_WIDGET                  \
@@ -87,10 +139,10 @@ Index: nautilus-46~beta/src/nautilus-preferences-window.c
  
      setup_detailed_date (builder);
  
-Index: nautilus-46~beta/src/nautilus-query-editor.c
+Index: nautilus-46.1/src/nautilus-query-editor.c
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-query-editor.c
-+++ nautilus-46~beta/src/nautilus-query-editor.c
+--- nautilus-46.1.orig/src/nautilus-query-editor.c
++++ nautilus-46.1/src/nautilus-query-editor.c
 @@ -732,6 +732,12 @@ nautilus_query_editor_set_query (Nautilu
  
      g_return_if_fail (NAUTILUS_IS_QUERY_EDITOR (self));
@@ -104,10 +156,10 @@ Index: nautilus-46~beta/src/nautilus-query-editor.c
      if (query != NULL)
      {
          text = nautilus_query_get_text (query);
-Index: nautilus-46~beta/src/nautilus-window-slot.c
+Index: nautilus-46.1/src/nautilus-window-slot.c
 ===================================================================
---- nautilus-46~beta.orig/src/nautilus-window-slot.c
-+++ nautilus-46~beta/src/nautilus-window-slot.c
+--- nautilus-46.1.orig/src/nautilus-window-slot.c
++++ nautilus-46.1/src/nautilus-window-slot.c
 @@ -68,6 +68,10 @@ enum
      NUM_PROPERTIES
  };
@@ -118,7 +170,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
 +
  struct _NautilusWindowSlot
  {
-     AdwBin parent_instance;
+     GtkBox parent_instance;
 @@ -110,6 +114,7 @@ struct _NautilusWindowSlot
      /* Query editor */
      NautilusQueryEditor *query_editor;
@@ -127,7 +179,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  
      /* Banner */
      AdwBanner *banner;
-@@ -404,6 +409,48 @@ query_editor_focus_view_callback (Nautil
+@@ -408,6 +413,48 @@ query_editor_focus_view_callback (Nautil
      }
  }
  
@@ -176,7 +228,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  static void
  query_editor_changed_callback (NautilusQueryEditor *editor,
                                 NautilusQuery       *query,
-@@ -414,9 +461,54 @@ query_editor_changed_callback (NautilusQ
+@@ -418,9 +465,54 @@ query_editor_changed_callback (NautilusQ
  
      view = nautilus_window_slot_get_current_view (self);
  
@@ -234,7 +286,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  }
  
  static void
-@@ -426,8 +518,6 @@ hide_query_editor (NautilusWindowSlot *s
+@@ -430,8 +522,6 @@ hide_query_editor (NautilusWindowSlot *s
  
      view = nautilus_window_slot_get_current_view (self);
  
@@ -243,7 +295,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      nautilus_query_editor_set_query (self->query_editor, NULL);
  
      if (nautilus_view_is_searching (view))
-@@ -456,17 +546,6 @@ hide_query_editor (NautilusWindowSlot *s
+@@ -460,17 +550,6 @@ hide_query_editor (NautilusWindowSlot *s
      }
  }
  
@@ -261,7 +313,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  static void
  show_query_editor (NautilusWindowSlot *self)
  {
-@@ -491,15 +570,6 @@ show_query_editor (NautilusWindowSlot *s
+@@ -495,15 +574,6 @@ show_query_editor (NautilusWindowSlot *s
      }
  
      gtk_widget_grab_focus (GTK_WIDGET (self->query_editor));
@@ -277,7 +329,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
  }
  
  static void
-@@ -613,7 +683,7 @@ nautilus_window_slot_handle_event (Nauti
+@@ -617,7 +687,7 @@ nautilus_window_slot_handle_event (Nauti
                                                       state);
      }
  
@@ -286,7 +338,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      {
          nautilus_window_slot_set_search_visible (self, TRUE);
      }
-@@ -874,6 +944,15 @@ nautilus_window_slot_constructed (GObjec
+@@ -878,6 +948,15 @@ nautilus_window_slot_constructed (GObjec
      gtk_box_append (GTK_BOX (self->vbox), extras_vbox);
  
      self->query_editor = NAUTILUS_QUERY_EDITOR (nautilus_query_editor_new ());
@@ -302,7 +354,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      /* We want to keep alive the query editor betwen additions and removals on the
       * UI, specifically when the toolbar adds or removes it */
      g_object_ref_sink (self->query_editor);
-@@ -1992,6 +2071,9 @@ setup_view (NautilusWindowSlot *self,
+@@ -1969,6 +2048,9 @@ setup_view (NautilusWindowSlot *self,
  
      nautilus_window_slot_disconnect_content_view (self);
  
@@ -312,7 +364,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      self->new_content_view = view;
  
      nautilus_window_slot_connect_new_content_view (self);
-@@ -2557,14 +2639,6 @@ view_started_loading (NautilusWindowSlot
+@@ -2534,14 +2616,6 @@ view_started_loading (NautilusWindowSlot
          nautilus_window_slot_set_allow_stop (self, TRUE);
      }
  
@@ -327,7 +379,7 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      nautilus_window_slot_set_loading (self, TRUE);
  }
  
-@@ -2583,6 +2657,14 @@ view_ended_loading (NautilusWindowSlot *
+@@ -2560,6 +2634,14 @@ view_ended_loading (NautilusWindowSlot *
          self->needs_reload = FALSE;
      }
  
@@ -342,10 +394,10 @@ Index: nautilus-46~beta/src/nautilus-window-slot.c
      nautilus_window_slot_set_allow_stop (self, FALSE);
  
      nautilus_window_slot_set_loading (self, FALSE);
-Index: nautilus-46~beta/src/resources/ui/nautilus-preferences-window.ui
+Index: nautilus-46.1/src/resources/ui/nautilus-preferences-window.ui
 ===================================================================
---- nautilus-46~beta.orig/src/resources/ui/nautilus-preferences-window.ui
-+++ nautilus-46~beta/src/resources/ui/nautilus-preferences-window.ui
+--- nautilus-46.1.orig/src/resources/ui/nautilus-preferences-window.ui
++++ nautilus-46.1/src/resources/ui/nautilus-preferences-window.ui
 @@ -37,6 +37,21 @@
                  <property name="visible">True</property>
                </object>
