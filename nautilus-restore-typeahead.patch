@@ -50,10 +50,10 @@ to have no effect, it now correctly opens the folder.
  .../ui/nautilus-preferences-window.ui         |  15 ++
  9 files changed, 171 insertions(+), 34 deletions(-)
 
-Index: nautilus-46.1/data/org.gnome.nautilus.gschema.xml
+Index: nautilus-46.2/data/org.gnome.nautilus.gschema.xml
 ===================================================================
---- nautilus-46.1.orig/data/org.gnome.nautilus.gschema.xml
-+++ nautilus-46.1/data/org.gnome.nautilus.gschema.xml
+--- nautilus-46.2.orig/data/org.gnome.nautilus.gschema.xml
++++ nautilus-46.2/data/org.gnome.nautilus.gschema.xml
 @@ -82,6 +82,11 @@
        <summary>Always use the location entry, instead of the pathbar</summary>
        <description>If set to true, Files will always use a textual input entry for the location toolbar, instead of the pathbar.</description>
@@ -66,11 +66,11 @@ Index: nautilus-46.1/data/org.gnome.nautilus.gschema.xml
      <key name="recursive-search" enum="org.gnome.nautilus.SpeedTradeoff">
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
-Index: nautilus-46.1/src/nautilus-files-view.c
+Index: nautilus-46.2/src/nautilus-files-view.c
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-files-view.c
-+++ nautilus-46.1/src/nautilus-files-view.c
-@@ -9879,3 +9879,19 @@ nautilus_files_view_new (guint
+--- nautilus-46.2.orig/src/nautilus-files-view.c
++++ nautilus-46.2/src/nautilus-files-view.c
+@@ -9896,3 +9896,19 @@ nautilus_files_view_new (guint
  
      return view;
  }
@@ -90,10 +90,10 @@ Index: nautilus-46.1/src/nautilus-files-view.c
 +    *directories_first = g_settings_get_boolean(gtk_filechooser_preferences,
 +                                                NAUTILUS_PREFERENCES_SORT_DIRECTORIES_FIRST);
 +}
-Index: nautilus-46.1/src/nautilus-files-view.h
+Index: nautilus-46.2/src/nautilus-files-view.h
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-files-view.h
-+++ nautilus-46.1/src/nautilus-files-view.h
+--- nautilus-46.2.orig/src/nautilus-files-view.h
++++ nautilus-46.2/src/nautilus-files-view.h
 @@ -162,4 +162,9 @@ void              nautilus_files_view_up
  void              nautilus_files_view_update_toolbar_menus       (NautilusFilesView      *view);
  void              nautilus_files_view_update_actions_state       (NautilusFilesView      *view);
@@ -104,10 +104,10 @@ Index: nautilus-46.1/src/nautilus-files-view.h
 +                                                                  gboolean               *directories_first);
 +
  G_END_DECLS
-Index: nautilus-46.1/src/nautilus-global-preferences.h
+Index: nautilus-46.2/src/nautilus-global-preferences.h
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-global-preferences.h
-+++ nautilus-46.1/src/nautilus-global-preferences.h
+--- nautilus-46.2.orig/src/nautilus-global-preferences.h
++++ nautilus-46.2/src/nautilus-global-preferences.h
 @@ -116,6 +116,7 @@ typedef enum
  
  /* Search behaviour */
@@ -116,10 +116,10 @@ Index: nautilus-46.1/src/nautilus-global-preferences.h
  
  /* Context menu options */
  #define NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY "show-delete-permanently"
-Index: nautilus-46.1/src/nautilus-preferences-window.c
+Index: nautilus-46.2/src/nautilus-preferences-window.c
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-preferences-window.c
-+++ nautilus-46.1/src/nautilus-preferences-window.c
+--- nautilus-46.2.orig/src/nautilus-preferences-window.c
++++ nautilus-46.2/src/nautilus-preferences-window.c
 @@ -42,6 +42,8 @@
          "show_create_link_row"
  #define NAUTILUS_PREFERENCES_DIALOG_LIST_VIEW_USE_TREE_WIDGET                  \
@@ -139,10 +139,10 @@ Index: nautilus-46.1/src/nautilus-preferences-window.c
  
      setup_detailed_date (builder);
  
-Index: nautilus-46.1/src/nautilus-query-editor.c
+Index: nautilus-46.2/src/nautilus-query-editor.c
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-query-editor.c
-+++ nautilus-46.1/src/nautilus-query-editor.c
+--- nautilus-46.2.orig/src/nautilus-query-editor.c
++++ nautilus-46.2/src/nautilus-query-editor.c
 @@ -732,6 +732,12 @@ nautilus_query_editor_set_query (Nautilu
  
      g_return_if_fail (NAUTILUS_IS_QUERY_EDITOR (self));
@@ -156,10 +156,10 @@ Index: nautilus-46.1/src/nautilus-query-editor.c
      if (query != NULL)
      {
          text = nautilus_query_get_text (query);
-Index: nautilus-46.1/src/nautilus-window-slot.c
+Index: nautilus-46.2/src/nautilus-window-slot.c
 ===================================================================
---- nautilus-46.1.orig/src/nautilus-window-slot.c
-+++ nautilus-46.1/src/nautilus-window-slot.c
+--- nautilus-46.2.orig/src/nautilus-window-slot.c
++++ nautilus-46.2/src/nautilus-window-slot.c
 @@ -68,6 +68,10 @@ enum
      NUM_PROPERTIES
  };
@@ -394,10 +394,10 @@ Index: nautilus-46.1/src/nautilus-window-slot.c
      nautilus_window_slot_set_allow_stop (self, FALSE);
  
      nautilus_window_slot_set_loading (self, FALSE);
-Index: nautilus-46.1/src/resources/ui/nautilus-preferences-window.ui
+Index: nautilus-46.2/src/resources/ui/nautilus-preferences-window.ui
 ===================================================================
---- nautilus-46.1.orig/src/resources/ui/nautilus-preferences-window.ui
-+++ nautilus-46.1/src/resources/ui/nautilus-preferences-window.ui
+--- nautilus-46.2.orig/src/resources/ui/nautilus-preferences-window.ui
++++ nautilus-46.2/src/resources/ui/nautilus-preferences-window.ui
 @@ -37,6 +37,21 @@
                  <property name="visible">True</property>
                </object>
