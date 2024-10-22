@@ -1,17 +1,68 @@
-From 645ad074cec31c19e6b5b5efa5cfcf2b5ed7e483 Mon Sep 17 00:00:00 2001
-From: Jeremy Bicha <jbicha@debian.org>
-Date: Wed, 23 Feb 2022 08:06:34 -0500
-Subject: [PATCH] Restore backspace for going to parent folder
-
-This restores the behaviour from nautilus <= 3.4.
-
-NautilusWindowSlot: Connect signals on query editor only once
+From 48966efcf4125fa1af72bdbb7ec8378a29494b90 Mon Sep 17 00:00:00 2001
+From: Xavier Claessens <xavier.claessens@collabora.com>
+Date: Fri, 8 Sep 2023 16:06:18 -0400
+Subject: [PATCH] NautilusWindowSlot: Connect signals on query editor only once
 
 It is wasteful to connect/disconnect signals each time the editor is
 shown/hidden. This also make possible to receive those signals when the
 query changed while being hidden for type ahead.
+---
+ src/nautilus-window-slot.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-Support type ahead for fast browsing
+diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
+index a251e0248a..4f588acfd8 100644
+--- a/src/nautilus-window-slot.c
++++ b/src/nautilus-window-slot.c
+@@ -431,8 +431,6 @@ hide_query_editor (NautilusWindowSlot *self)
+ 
+     view = nautilus_window_slot_get_current_view (self);
+ 
+-    g_signal_handlers_disconnect_by_data (self->query_editor, self);
+-
+     nautilus_query_editor_set_query (self->query_editor, NULL);
+ 
+     if (nautilus_view_is_searching (view))
+@@ -496,15 +494,6 @@ show_query_editor (NautilusWindowSlot *self)
+     }
+ 
+     gtk_widget_grab_focus (GTK_WIDGET (self->query_editor));
+-
+-    g_signal_connect (self->query_editor, "changed",
+-                      G_CALLBACK (query_editor_changed_callback), self);
+-    g_signal_connect (self->query_editor, "cancel",
+-                      G_CALLBACK (query_editor_cancel_callback), self);
+-    g_signal_connect (self->query_editor, "activated",
+-                      G_CALLBACK (query_editor_activated_callback), self);
+-    g_signal_connect (self->query_editor, "focus-view",
+-                      G_CALLBACK (query_editor_focus_view_callback), self);
+ }
+ 
+ static void
+@@ -912,6 +901,15 @@ nautilus_window_slot_constructed (GObject *object)
+     gtk_box_append (GTK_BOX (self->vbox), extras_vbox);
+ 
+     self->query_editor = NAUTILUS_QUERY_EDITOR (nautilus_query_editor_new ());
++    g_signal_connect (self->query_editor, "changed",
++                      G_CALLBACK (query_editor_changed_callback), self);
++    g_signal_connect (self->query_editor, "cancel",
++                      G_CALLBACK (query_editor_cancel_callback), self);
++    g_signal_connect (self->query_editor, "activated",
++                      G_CALLBACK (query_editor_activated_callback), self);
++    g_signal_connect (self->query_editor, "focus-view",
++                      G_CALLBACK (query_editor_focus_view_callback), self);
++
+     /* We want to keep alive the query editor betwen additions and removals on the
+      * UI, specifically when the toolbar adds or removes it */
+     g_object_ref_sink (self->query_editor);
+-- 
+GitLab
+
+
+From 05f8e6e9bee25c894d2f3582649750737081253b Mon Sep 17 00:00:00 2001
+From: Xavier Claessens <xavier.claessens@collabora.com>
+Date: Mon, 28 Nov 2022 15:18:15 -0500
+Subject: [PATCH] Support type ahead for fast browsing
 
 Searching is too slow when fast browsing directory tree. Even when
 recursing searching is disabled, it still takes time to load the new
@@ -24,36 +75,21 @@ many times per day into the same location, it becomes muscle memory,
 just like tab in a terminal.
 
 This is similar to how at least Windows file browser works.
-
-NautilusWindowSlot: Fix grabbing focus after loading initial view
-
-When view_started_loading() is first called self->content_view is NULL
-and thus focus is given to self->new_content_view which is not yet part
-of the window UI and thus cannot receive the focus.
-
-Instead, wait for view_ended_loading() because at that stage
-self->content_view is set and has been added into self->vbox.
-
-Visible effect: Using left/right arrows after startup used to move focus
-within top bar, it now selects next/prev file. With type-ahead browsing,
-pressing ENTER after typing a file name immediately after startup used
-to have no effect, it now correctly opens the folder.
 ---
  data/org.gnome.nautilus.gschema.xml           |   5 +
- src/nautilus-files-view.c                     |  16 ++
+ src/nautilus-files-view.c                     |  16 +++
  src/nautilus-files-view.h                     |   5 +
  src/nautilus-global-preferences.h             |   1 +
- src/nautilus-preferences-window.c             |   5 +
+ src/nautilus-preferences-dialog.c             |   5 +
  src/nautilus-query-editor.c                   |   6 +
- src/nautilus-window-slot.c                    | 150 ++++++++++++++----
- src/nautilus-window.c                         |   2 +
- .../ui/nautilus-preferences-window.ui         |  15 ++
- 9 files changed, 171 insertions(+), 34 deletions(-)
+ src/nautilus-window-slot.c                    | 113 +++++++++++++++---
+ .../ui/nautilus-preferences-dialog.ui         |  15 +++
+ 8 files changed, 151 insertions(+), 15 deletions(-)
 
-Index: nautilus-46.2/data/org.gnome.nautilus.gschema.xml
-===================================================================
---- nautilus-46.2.orig/data/org.gnome.nautilus.gschema.xml
-+++ nautilus-46.2/data/org.gnome.nautilus.gschema.xml
+diff --git a/data/org.gnome.nautilus.gschema.xml b/data/org.gnome.nautilus.gschema.xml
+index 2c0f45638b..45d793ac37 100644
+--- a/data/org.gnome.nautilus.gschema.xml
++++ b/data/org.gnome.nautilus.gschema.xml
 @@ -82,6 +82,11 @@
        <summary>Always use the location entry, instead of the pathbar</summary>
        <description>If set to true, Files will always use a textual input entry for the location toolbar, instead of the pathbar.</description>
@@ -66,11 +102,11 @@ Index: nautilus-46.2/data/org.gnome.nautilus.gschema.xml
      <key name="recursive-search" enum="org.gnome.nautilus.SpeedTradeoff">
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
-Index: nautilus-46.2/src/nautilus-files-view.c
-===================================================================
---- nautilus-46.2.orig/src/nautilus-files-view.c
-+++ nautilus-46.2/src/nautilus-files-view.c
-@@ -9896,3 +9896,19 @@ nautilus_files_view_new (guint
+diff --git a/src/nautilus-files-view.c b/src/nautilus-files-view.c
+index f23380497f..66045a2bb4 100644
+--- a/src/nautilus-files-view.c
++++ b/src/nautilus-files-view.c
+@@ -10105,3 +10105,19 @@ nautilus_files_view_new (guint               id,
  
      return view;
  }
@@ -90,11 +126,11 @@ Index: nautilus-46.2/src/nautilus-files-view.c
 +    *directories_first = g_settings_get_boolean(gtk_filechooser_preferences,
 +                                                NAUTILUS_PREFERENCES_SORT_DIRECTORIES_FIRST);
 +}
-Index: nautilus-46.2/src/nautilus-files-view.h
-===================================================================
---- nautilus-46.2.orig/src/nautilus-files-view.h
-+++ nautilus-46.2/src/nautilus-files-view.h
-@@ -162,4 +162,9 @@ void              nautilus_files_view_up
+diff --git a/src/nautilus-files-view.h b/src/nautilus-files-view.h
+index b149c3d4a7..30b8859995 100644
+--- a/src/nautilus-files-view.h
++++ b/src/nautilus-files-view.h
+@@ -161,4 +161,9 @@ void              nautilus_files_view_update_context_menus       (NautilusFilesV
  void              nautilus_files_view_update_toolbar_menus       (NautilusFilesView      *view);
  void              nautilus_files_view_update_actions_state       (NautilusFilesView      *view);
  
@@ -104,11 +140,11 @@ Index: nautilus-46.2/src/nautilus-files-view.h
 +                                                                  gboolean               *directories_first);
 +
  G_END_DECLS
-Index: nautilus-46.2/src/nautilus-global-preferences.h
-===================================================================
---- nautilus-46.2.orig/src/nautilus-global-preferences.h
-+++ nautilus-46.2/src/nautilus-global-preferences.h
-@@ -116,6 +116,7 @@ typedef enum
+diff --git a/src/nautilus-global-preferences.h b/src/nautilus-global-preferences.h
+index 0c1bbdad26..2bce2c477d 100644
+--- a/src/nautilus-global-preferences.h
++++ b/src/nautilus-global-preferences.h
+@@ -118,6 +118,7 @@ typedef enum
  
  /* Search behaviour */
  #define NAUTILUS_PREFERENCES_RECURSIVE_SEARCH "recursive-search"
@@ -116,10 +152,10 @@ Index: nautilus-46.2/src/nautilus-global-preferences.h
  
  /* Context menu options */
  #define NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY "show-delete-permanently"
-Index: nautilus-46.2/src/nautilus-preferences-window.c
-===================================================================
---- nautilus-46.2.orig/src/nautilus-preferences-window.c
-+++ nautilus-46.2/src/nautilus-preferences-window.c
+diff --git a/src/nautilus-preferences-dialog.c b/src/nautilus-preferences-dialog.c
+index b399948d52..d7987720cb 100644
+--- a/src/nautilus-preferences-dialog.c
++++ b/src/nautilus-preferences-dialog.c
 @@ -42,6 +42,8 @@
          "show_create_link_row"
  #define NAUTILUS_PREFERENCES_DIALOG_LIST_VIEW_USE_TREE_WIDGET                  \
@@ -129,7 +165,7 @@ Index: nautilus-46.2/src/nautilus-preferences-window.c
  
  /* combo preferences */
  #define NAUTILUS_PREFERENCES_DIALOG_OPEN_ACTION_COMBO                          \
-@@ -361,6 +363,9 @@ nautilus_preferences_window_setup (GtkBu
+@@ -361,6 +363,9 @@ nautilus_preferences_dialog_setup (GtkBuilder *builder)
      bind_builder_bool (builder, nautilus_preferences,
                         NAUTILUS_PREFERENCES_DIALOG_DELETE_PERMANENTLY_WIDGET,
                         NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY);
@@ -139,11 +175,11 @@ Index: nautilus-46.2/src/nautilus-preferences-window.c
  
      setup_detailed_date (builder);
  
-Index: nautilus-46.2/src/nautilus-query-editor.c
-===================================================================
---- nautilus-46.2.orig/src/nautilus-query-editor.c
-+++ nautilus-46.2/src/nautilus-query-editor.c
-@@ -732,6 +732,12 @@ nautilus_query_editor_set_query (Nautilu
+diff --git a/src/nautilus-query-editor.c b/src/nautilus-query-editor.c
+index 9284152656..e729098a9c 100644
+--- a/src/nautilus-query-editor.c
++++ b/src/nautilus-query-editor.c
+@@ -876,6 +876,12 @@ nautilus_query_editor_set_query (NautilusQueryEditor *self,
  
      g_return_if_fail (NAUTILUS_IS_QUERY_EDITOR (self));
  
@@ -156,22 +192,21 @@ Index: nautilus-46.2/src/nautilus-query-editor.c
      if (query != NULL)
      {
          text = nautilus_query_get_text (query);
-Index: nautilus-46.2/src/nautilus-window-slot.c
-===================================================================
---- nautilus-46.2.orig/src/nautilus-window-slot.c
-+++ nautilus-46.2/src/nautilus-window-slot.c
-@@ -68,6 +68,10 @@ enum
-     NUM_PROPERTIES
- };
+diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
+index 4f588acfd8..821c140db7 100644
+--- a/src/nautilus-window-slot.c
++++ b/src/nautilus-window-slot.c
+@@ -79,6 +79,9 @@ enum
  
-+
+ static guint signals[LAST_SIGNAL];
+ 
 +/* In type ahead mode, clear entry if it did not change for a while */
 +#define CLEAR_QUERY_EDITOR_TIMEOUT 1000
 +
  struct _NautilusWindowSlot
  {
-     GtkBox parent_instance;
-@@ -110,6 +114,7 @@ struct _NautilusWindowSlot
+     AdwBin parent_instance;
+@@ -124,6 +127,7 @@ struct _NautilusWindowSlot
      /* Query editor */
      NautilusQueryEditor *query_editor;
      NautilusQuery *pending_search_query;
@@ -179,7 +214,7 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
  
      /* Banner */
      AdwBanner *banner;
-@@ -408,6 +413,48 @@ query_editor_focus_view_callback (Nautil
+@@ -409,6 +413,48 @@ query_editor_focus_view_callback (NautilusQueryEditor *editor,
      }
  }
  
@@ -228,7 +263,7 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
  static void
  query_editor_changed_callback (NautilusQueryEditor *editor,
                                 NautilusQuery       *query,
-@@ -418,9 +465,54 @@ query_editor_changed_callback (NautilusQ
+@@ -419,9 +465,54 @@ query_editor_changed_callback (NautilusQueryEditor *editor,
  
      view = nautilus_window_slot_get_current_view (self);
  
@@ -286,16 +321,7 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
  }
  
  static void
-@@ -430,8 +522,6 @@ hide_query_editor (NautilusWindowSlot *s
- 
-     view = nautilus_window_slot_get_current_view (self);
- 
--    g_signal_handlers_disconnect_by_data (self->query_editor, self);
--
-     nautilus_query_editor_set_query (self->query_editor, NULL);
- 
-     if (nautilus_view_is_searching (view))
-@@ -460,17 +550,6 @@ hide_query_editor (NautilusWindowSlot *s
+@@ -459,17 +550,6 @@ hide_query_editor (NautilusWindowSlot *self)
      }
  }
  
@@ -313,23 +339,7 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
  static void
  show_query_editor (NautilusWindowSlot *self)
  {
-@@ -495,15 +574,6 @@ show_query_editor (NautilusWindowSlot *s
-     }
- 
-     gtk_widget_grab_focus (GTK_WIDGET (self->query_editor));
--
--    g_signal_connect (self->query_editor, "changed",
--                      G_CALLBACK (query_editor_changed_callback), self);
--    g_signal_connect (self->query_editor, "cancel",
--                      G_CALLBACK (query_editor_cancel_callback), self);
--    g_signal_connect (self->query_editor, "activated",
--                      G_CALLBACK (query_editor_activated_callback), self);
--    g_signal_connect (self->query_editor, "focus-view",
--                      G_CALLBACK (query_editor_focus_view_callback), self);
- }
- 
- static void
-@@ -617,7 +687,7 @@ nautilus_window_slot_handle_event (Nauti
+@@ -628,7 +708,7 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                                       state);
      }
  
@@ -338,23 +348,7 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
      {
          nautilus_window_slot_set_search_visible (self, TRUE);
      }
-@@ -878,6 +948,15 @@ nautilus_window_slot_constructed (GObjec
-     gtk_box_append (GTK_BOX (self->vbox), extras_vbox);
- 
-     self->query_editor = NAUTILUS_QUERY_EDITOR (nautilus_query_editor_new ());
-+    g_signal_connect (self->query_editor, "changed",
-+                      G_CALLBACK (query_editor_changed_callback), self);
-+    g_signal_connect (self->query_editor, "cancel",
-+                      G_CALLBACK (query_editor_cancel_callback), self);
-+    g_signal_connect (self->query_editor, "activated",
-+                      G_CALLBACK (query_editor_activated_callback), self);
-+    g_signal_connect (self->query_editor, "focus-view",
-+                      G_CALLBACK (query_editor_focus_view_callback), self);
-+
-     /* We want to keep alive the query editor betwen additions and removals on the
-      * UI, specifically when the toolbar adds or removes it */
-     g_object_ref_sink (self->query_editor);
-@@ -1969,6 +2048,9 @@ setup_view (NautilusWindowSlot *self,
+@@ -2149,6 +2229,9 @@ setup_view (NautilusWindowSlot *self,
  
      nautilus_window_slot_disconnect_content_view (self);
  
@@ -364,42 +358,12 @@ Index: nautilus-46.2/src/nautilus-window-slot.c
      self->new_content_view = view;
  
      nautilus_window_slot_connect_new_content_view (self);
-@@ -2534,14 +2616,6 @@ view_started_loading (NautilusWindowSlot
-         nautilus_window_slot_set_allow_stop (self, TRUE);
-     }
- 
--    /* Only grab focus if the menu isn't showing. Otherwise the menu disappears
--     * e.g. when the user toggles Show Hidden Files
--     */
--    if (!nautilus_window_is_menu_visible (self->window))
--    {
--        gtk_widget_grab_focus (GTK_WIDGET (self->window));
--    }
--
-     nautilus_window_slot_set_loading (self, TRUE);
- }
- 
-@@ -2560,6 +2634,14 @@ view_ended_loading (NautilusWindowSlot *
-         self->needs_reload = FALSE;
-     }
- 
-+    /* Only grab focus if the menu isn't showing. Otherwise the menu disappears
-+     * e.g. when the user toggles Show Hidden Files
-+     */
-+    if (!nautilus_window_is_menu_visible (self->window))
-+    {
-+        gtk_widget_grab_focus (GTK_WIDGET (self->window));
-+    }
-+
-     nautilus_window_slot_set_allow_stop (self, FALSE);
- 
-     nautilus_window_slot_set_loading (self, FALSE);
-Index: nautilus-46.2/src/resources/ui/nautilus-preferences-window.ui
-===================================================================
---- nautilus-46.2.orig/src/resources/ui/nautilus-preferences-window.ui
-+++ nautilus-46.2/src/resources/ui/nautilus-preferences-window.ui
-@@ -37,6 +37,21 @@
-                 <property name="visible">True</property>
+diff --git a/src/resources/ui/nautilus-preferences-dialog.ui b/src/resources/ui/nautilus-preferences-dialog.ui
+index fffaa6803f..4e0bb0f796 100644
+--- a/src/resources/ui/nautilus-preferences-dialog.ui
++++ b/src/resources/ui/nautilus-preferences-dialog.ui
+@@ -27,6 +27,21 @@
+                 <property name="use_underline">True</property>
                </object>
              </child>
 +            <child>
@@ -420,3 +384,6 @@ Index: nautilus-46.2/src/resources/ui/nautilus-preferences-window.ui
            </object>
          </child>
          <child>
+-- 
+GitLab
+
