@@ -4,7 +4,7 @@
 
 ## What's new
 
-Version for Ubuntu 24.04 Noble is up (`1:46.2-0ubuntu0.1ppa1`).
+Version for Ubuntu 24.10 Oracular is up (`1:47.0-1ubuntu1ppa2`).
 
 ## What does it do?
 
