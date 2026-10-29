@@ -1,10 +1,12 @@
 # nautilus-typeahead
 
-**TL;DR:** This repository contains a patch file that is used to build a Ubuntu PPA package of nautilus with restored type-to-seek (typeahead) functionality.
+**TL;DR:** This repository contains patch files that are used to build a Ubuntu PPA package of nautilus with restored type-to-seek (typeahead) functionality.
 
 ## What's new
 
-Version for Ubuntu 24.10 Oracular is up (`1:47.0-1ubuntu1ppa2`).
+I've been neglecting updates to this repository, sorry about that (thankfully, not the PPA builds themselves).
+
+Repo will now use a different structure - instead of overwriting the patches, I'll be adding them to the new folder structure based on Ubuntu release and version.
 
 ## What does it do?
 
